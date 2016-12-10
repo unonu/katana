@@ -1,6 +1,9 @@
 Frame = {}
 Frame.__index = Frame
 
+Frame.POP = 1
+Frame.POPALL = 2
+
 function Frame.make(layout)
 	local f = {}
 	setmetatable(f, Frame)
@@ -11,6 +14,7 @@ function Frame.make(layout)
 	f.width = nil
 	f.height = nil
 	f.x,f.y = 0, 0
+	f.transformStack = {}
 
 	f.elements = {}
 	f.allowance = {}
@@ -63,9 +67,15 @@ function Frame:addElement(element)
 	end
 end
 
-function Frame:setSize(width,height)
+function Frame:setSize(width,height,push,pop)
 
 	local _width, _height = self.width, self.height
+	if (push == nil or push) and (_width and _height) then
+		self:pushTransformation()
+	end
+	if pop then
+		self:popTransformation( pop == self.POPALL  )
+	end
 	self.width, self.height = width, height
 
 	if self.layout == "vertical" then
@@ -89,6 +99,25 @@ function Frame:setSize(width,height)
 			self.dividers[i] = ox
 		end
 	end
+end
+
+function Frame:pushTransformation()
+	self.transformStack[#self.transformStack+1] = {self.width,self.height}
+end
+
+function Frame:popTransformation(all)
+	if #self.transformStack == 0 then
+		return
+	end
+
+	if all then
+		self.transformStack = {self.transformStack[self.transformStack[1]]}
+	end
+
+	_w,_h = unpack(self.transformStack[#self.transformStack])
+	print(_w,_h)
+	self.transformStack[#self.transformStack] = nil
+	self:setSize(_w,_h,false,POP)
 end
 
 function Frame:update(dt,x,y)
@@ -129,7 +158,7 @@ function Frame:update(dt,x,y)
 			if self.dividers.grabbed then
 				e.x = self.x
 				e.y = self.y + oy
-				e:setSize(self.width,self.dividers[i] - (self.dividers[i-1] or 0)) --[[ Allow realtime resize ]]
+				e:setSize(self.width,self.dividers[i] - (self.dividers[i-1] or 0), false) --[[ Allow realtime resize ]]
 			end
 			e:update(dt,x,oy+y)
 			oy = oy + e.height
@@ -152,7 +181,7 @@ function Frame:update(dt,x,y)
 			if self.dividers.grabbed then
 				e.x = self.x + ox
 				e.y = self.y
-				e:setSize(self.dividers[i] - (self.dividers[i-1] or 0),self.height) --[[ Allow realtime resize ]]
+				e:setSize(self.dividers[i] - (self.dividers[i-1] or 0),self.height, false) --[[ Allow realtime resize ]]
 			end
 			e:update(dt,ox+x,y)
 			ox = ox + e.width
@@ -165,7 +194,7 @@ function Frame:update(dt,x,y)
 	end
 end
 
-function Frame:draw()
+function Frame:draw(expand)
 	if self.layout == "vertical" then
 		local oy = 0
 		for i,e in ipairs(self.elements) do
@@ -194,12 +223,14 @@ function Frame:draw()
 		end
 	end
 	-----------------------------------------------------------------------
-	-- if self.focused then
-		-- love.graphics.setColor(colors.white)
-		-- love.graphics.rectangle('line', 0,0,self.width,self.height)
-		-- love.graphics.setColor(255,255,255)
-		-- love.graphics.printf("FRAME",0,self.height/2,self.width,"center")
-	-- end
+	if self.focused then
+		love.graphics.setColor(colors.white)
+		love.graphics.rectangle('line', 0,0,self.width,self.height)
+		love.graphics.setColor(255,255,255)
+		love.graphics.printf(
+			"FRAME\n("..self.x..", "..self.y..")\n"..self.width..", "..self.height,
+			0,self.height/2,self.width,"center")
+	end
 	-----------------------------------------------------------------------
 
 end
@@ -229,16 +260,16 @@ function Frame:mousereleased(x,y,button)
 	if self.layout == "vertical" then
 		local oy = 0
 		for i,e in ipairs(self.elements) do
-			if self.dividers.grabbed then
-				e:setSize(self.width,self.dividers[i] - (self.dividers[i-1] or 0)) end
+			-- if self.dividers.grabbed then
+			-- 	e:setSize(self.width,self.dividers[i] - (self.dividers[i-1] or 0)) end
 			e:mousereleased(x,y - oy,button)
 			oy = oy + e.height
 		end
 	else
 		local ox = 0
 		for i,e in ipairs(self.elements) do
-			if self.dividers.grabbed then
-				e:setSize(self.dividers[i] - (self.dividers[i-1] or 0),self.height) end
+			-- if self.dividers.grabbed then
+			-- 	e:setSize(self.dividers[i] - (self.dividers[i-1] or 0),self.height) end
 			e:mousereleased(x - ox,y,button)
 			ox = ox + e.width
 		end
@@ -432,7 +463,7 @@ end
 
 function VideoFrame:draw()
 
-	love.graphics.setScissor(self.x,self.y,self.width,self.height)
+	-- love.graphics.setScissor(self.x,self.y,self.width,self.height)
 
 	-- love.graphics.setColor(colors.videoFrameBG)
 	love.graphics.setColor(colors.widget)
@@ -457,6 +488,9 @@ function VideoFrame:draw()
 
 		love.graphics.setColor(0,0,0)
 		love.graphics.rectangle("fill",x,y,profile.width*scale,profile.height*scale)
+		love.graphics.setColor(255,255,255)
+		love.graphics.print(x .. ', ' .. y .. '\n' .. self.x .. ', ' .. self.y
+			.. '\n'.. scale, x,y)
 	end
 
 	if self.showControls then

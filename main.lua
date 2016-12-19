@@ -1,9 +1,10 @@
-					  require("moreMath")
-					  require("extra")
-					  require("graphics")
-State 				= require("state")
-Video 				= require("video")
-serial				= require("serial")
+					  require("lua.moreMath")
+					  require("lua.extra")
+					  require("lua.graphics")
+					  require("lua.keybinding")
+State 				= require("lua.state")
+Video 				= require("lua.video")
+serial				= require("lua.serial")
 -- FFI					= require("ffi")
 
 colors = {}
@@ -116,12 +117,18 @@ function love.load(arg)
 				audio = State.Audio.make(),
 				render = State.Render.make(), }
 
+	Keybindings.loadBindings()
+
 	--[[ Timers are all automatically updated based on
 		the ui refresh rate. First index is the value,
 		second is the target, third is the discard flag.]]
 
 	timers = {loadStatus = {0,0}}
 
+end
+
+function getState()
+	return states[windowState]
 end
 
 function love.draw()
@@ -258,9 +265,7 @@ end
 
 function love.keypressed(k)
 
-	if k == 'q' and love.keyboard.isDown('lctrl','rctrl') then
-		love.event.quit()
-	end
+	Keybindings.callBinding(k,love.keyboard.getModifiers())
 	if State.modal then
 		if State.modal.keypressed then
 			State.modal:keypressed(k)

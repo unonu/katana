@@ -223,14 +223,14 @@ function Frame:draw(expand)
 		end
 	end
 	-----------------------------------------------------------------------
-	if self.focused then
-		love.graphics.setColor(colors.white)
-		love.graphics.rectangle('line', 0,0,self.width,self.height)
-		love.graphics.setColor(255,255,255)
-		love.graphics.printf(
-			"FRAME\n("..self.x..", "..self.y..")\n"..self.width..", "..self.height,
-			0,self.height/2,self.width,"center")
-	end
+	-- if self.focused then
+	-- 	love.graphics.setColor(colors.white)
+	-- 	love.graphics.rectangle('line', 0,0,self.width,self.height)
+	-- 	love.graphics.setColor(255,255,255)
+	-- 	love.graphics.printf(
+	-- 		"FRAME\n("..self.x..", "..self.y..")\n"..self.width..", "..self.height,
+	-- 		0,self.height/2,self.width,"center")
+	-- end
 	-----------------------------------------------------------------------
 
 end
@@ -463,17 +463,17 @@ end
 
 function VideoFrame:draw()
 
-	-- love.graphics.setScissor(self.x,self.y,self.width,self.height)
+	love.graphics.setScissor(self.x,self.y,self.width,self.height)
 
 	-- love.graphics.setColor(colors.videoFrameBG)
 	love.graphics.setColor(colors.widget)
 	love.graphics.rectangle("fill", 0,0,self.width,self.height)
 
+	local scale = self.frameScale*math.min(self.width/(self.frameWidth),
+											(self.height-48)/(self.frameHeight))
+	local x = (self.width/2) - (self.frameWidth/2)*scale - self.offset[1]
+	local y = (self.height/2) - (self.frameHeight/2)*scale - self.offset[2]
 	if self.frame then
-		local scale = self.frameScale*math.min(self.width/(self.frameWidth),
-												(self.height-48)/(self.frameHeight))
-		local x = (self.width/2) - (self.frameWidth/2)*scale - self.offset[1]
-		local y = (self.height/2) - (self.frameHeight/2)*scale - self.offset[2]
 
 		love.graphics.setColor(colors.white)
 		love.graphics.draw(self.frame,x,y,0,scale)
@@ -481,16 +481,13 @@ function VideoFrame:draw()
 		love.graphics.setColor(255,0,0)
 		love.graphics.rectangle("line",x,y,profile.width*scale,profile.height*scale)
 	else
-		local scale = self.frameScale*math.min(self.width/(self.frameWidth),
-												(self.height-48)/(self.frameHeight))
-		local x = (self.width/2) - (self.frameWidth/2)*scale - self.offset[1]
-		local y = (self.height/2) - (self.frameHeight/2)*scale - self.offset[2]
 
 		love.graphics.setColor(0,0,0)
 		love.graphics.rectangle("fill",x,y,profile.width*scale,profile.height*scale)
 		love.graphics.setColor(255,255,255)
-		love.graphics.print(x .. ', ' .. y .. '\n' .. self.x .. ', ' .. self.y
-			.. '\n'.. scale, x,y)
+		love.graphics.printf('No Clip', x,y + profile.height*scale/2,profile.width*scale, "center")
+		-- love.graphics.print(x .. ', ' .. y .. '\n' .. self.x .. ', ' .. self.y
+		-- 	.. '\n'.. scale, x,y)
 	end
 
 	if self.showControls then
@@ -1343,6 +1340,8 @@ function Tracker:update(dt,x,y)
 	if self.playheadHeld then
 		self.location = math.max(0,(self.offset[1]+mx-128)/(5*self.scale))
 	end
+
+	self.length = self.inOut[2]
 
 	if mx >=0 and mx <= 128 then
 		-- insert tracker controls here

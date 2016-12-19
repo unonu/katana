@@ -171,9 +171,10 @@ function toHMS(t,r,brief)
 	local h,m
 	h = math.modf(t/3600)
 	m = math.modf( (t-(h*3600)) /60)
+	s = math.round(t%60,r or 0)
 	return (h ~= 0 and h..'h' or (brief and '' or '0h'))..
-			(m ~= 0 and m..'m' or (brief and '' or '0m'))..
-			 (math.round(t%60,r or 0) ~= 0 and math.round(t%60,r or 0)..'s' or '0s')
+			(m ~= 0 and m..'m' or ((brief and h == 0) and '' or '0m'))..
+			 (s ~= 0 and s..'s' or (brief and '' or '0s'))
 end
 
 function toSex(t)

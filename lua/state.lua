@@ -1,4 +1,4 @@
-UI = require("ui")
+UI = require("lua.ui")
 
 --[[ Edit mode is the hub mode, where everything
 	returns to. From here, references can be
@@ -63,16 +63,6 @@ function Edit:update(dt,x,y)
 end
 
 function Edit:keypressed(k)
-	if k == 'up' and love.keyboard.isDown('lctrl', 'rctrl') then
-		if self.focusFrame then
-			self.focusFrame:popTransformation()
-			self.focusFrame = nil
-			self.masterFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20,false,self.masterFrame.POP)
-		else
-			self.focusFrame = self.focused
-			self.focusFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20)
-		end
-	end
 	if self.focusFrame then
 		self.focusFrame:keypressed(k)
 		return
@@ -118,6 +108,17 @@ function Edit:resize(w,h)
 		return
 	end
 	self.masterFrame:setSize(w-4,h-20)
+end
+
+function Edit:maximize()
+	if self.focusFrame then
+		self.focusFrame:popTransformation()
+		self.focusFrame = nil
+		self.masterFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20,false,self.masterFrame.POP)
+	else
+		self.focusFrame = self.focused
+		self.focusFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20)
+	end
 end
 
 Effects = {}

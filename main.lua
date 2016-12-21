@@ -109,13 +109,8 @@ function love.load(arg)
 
 	--[[ Window state determines which mode we're in.
 		States are: edit, effects, render ...        ]]
+	State.init()
 
-	windowState = "edit"
-
-	states = {  edit = State.Edit.make(),
-				effects = State.Effects.make(),
-				audio = State.Audio.make(),
-				render = State.Render.make(), }
 
 	Keybindings.loadBindings()
 
@@ -125,10 +120,6 @@ function love.load(arg)
 
 	timers = {loadStatus = {0,0}}
 
-end
-
-function getState()
-	return states[windowState]
 end
 
 function love.draw()

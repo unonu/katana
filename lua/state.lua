@@ -117,6 +117,8 @@ function Edit:maximize()
 		self.masterFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20,false,self.masterFrame.POP)
 	else
 		self.focusFrame = self.focused
+		self.focusFrame.x = 0
+		self.focusFrame.y = 0
 		self.focusFrame:setSize(love.graphics.getWidth()-4,love.graphics.getHeight()-20)
 	end
 end
@@ -243,6 +245,21 @@ State.Render = Render
 State.modal = nil
 State.contextMenu = nil
 
+windowState = "edit"
+
+states = nil
+
+function State.init()
+	states = {  State.Edit.make(),
+			State.Effects.make(),
+			State.Audio.make(),
+			State.Render.make(), }
+	states['edit'] = states[1]
+	states['effects'] = states[2]
+	states['audio'] = states[3]
+	states['render'] = states[4]
+end
+			
 function State.setModal(modal)
 	State.modal = modal
 end
@@ -250,5 +267,11 @@ end
 function State.setContextMenu(contextMenu)
 	State.contextMenu = contextMenu
 end
+
+function State.getState()
+	return states[windowState]
+end
+
+
 
 return State

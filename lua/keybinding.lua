@@ -38,7 +38,7 @@ end
 Keybindings.loadBindings = 
 function (file)
 	Keybindings.setBinding(love.event.quit,'q',{'ctrl'})
-	Keybindings.setBinding(function () getState():maximize() end,'up',{'ctrl'})
+	Keybindings.setBinding(function () State.getState():maximize() end,'up',{'ctrl'})
 end
 
 love.keyboard.getModifiers =

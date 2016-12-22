@@ -19,6 +19,8 @@ void setData_32(char* dst, char* src, int w, int h);
 
 imageDataExtra = FFI.load( "ffi/imageDataExtra.so" )
 
+avInit()
+
 --[[ VideoStream is just a loose wrapper for ffmpeg.
 	The video stream provides video and audio at
 	request, and can also be used to                ]]
@@ -40,12 +42,18 @@ function VideoStream.make( path,width,height )
 	----
 
 	s.path = path
-	s.stream = nil
+	s.stream = path and avVideo.make(path)
 	s.width,s.height = width or profile.width, height or profile.height
 	s.data = love.image.newImageData(s.width,s.height)
 	-- s.data:setData(s.color:rep(s.width*s.height))
 	-- imageDataExtra.flush(s.data:getPointer(), FFI.cast("char",s.color[1]) , s.width, s.height)
-	imageDataExtra.flush(s.data:getPointer(), s.color , s.width, s.height)
+	-- imageDataExtra.flush(s.data:getPointer(), s.color , s.width, s.height)
+	if path then
+		local f = s.stream:getFrame()
+		print('e', f)
+		imageDataExtra.setData_32(s.data:getPointer(), f , s.width, s.height)
+		s.width,s.height = s.stream.width or profile.width, s.stream.height or profile.height
+	end
 	s.image = love.graphics.newImage(s.data)
 
 	return s
@@ -78,6 +86,8 @@ function VideoStream:getFrame( location,w,_h )
 	local data = love.image.newImageData(w,_h)
 	-- data:setData(self.color:rep(w*(_h or w)))
 	-- imageDataExtra.flush(data:getPointer(), FFI.cast("char",self.color[1]), w, _h or w)
+	-- imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
+
 	imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
 
 	return love.graphics.newImage(data)

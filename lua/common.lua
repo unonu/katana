@@ -24,6 +24,10 @@ function Widget.make(props = {})
 	local b = {}
 	setmetatable(b,Widget)
 
+	b.x = 0
+	b.y = 0
+	b.height = 24
+	b.width = 24
 	b.properties = {
 		x = 0,
 		y = 0,
@@ -51,4 +55,10 @@ function Widget.make(props = {})
 		
 	}
 
+end
+
+function Widget:draw()
+	love.graphics.setColor(colors.white)
+	love.graphics.rectangle('line',self.x, self.y,
+		self.width, self.height, self.properties.radius)
 end

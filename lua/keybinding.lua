@@ -3,9 +3,20 @@ Okay so we need to check key events
 as well as modifiers. Keybindings
 table should hold binding combos
 ]]
-Keybindings = {
-	
-}
+
+love.keyboard.getModifiers =
+function ()
+	local alt = (love.keyboard.isDown('lalt') or love.keyboard.isDown('ralt')) and 'alt' or nil
+	local ctrl = (love.keyboard.isDown('lctrl') or love.keyboard.isDown('rctrl')) and 'ctrl' or nil
+	local shift = (love.keyboard.isDown('lshift') or love.keyboard.isDown('rshift')) and 'shift' or nil
+	alt = alt and ( alt .. ( (ctrl or shift) and ' ' or '' ) ) or ''
+	ctrl = ctrl and ( ctrl .. ( shift and ' ' or '' ) ) or ''
+	shift = shift or ''
+	-- print(alt .. ctrl .. shift)
+	return ( alt .. ctrl .. shift ):split()
+end
+
+local Keybindings = {}
 
 Keybindings.callBinding =
 function (key, modifiers)
@@ -39,16 +50,8 @@ Keybindings.loadBindings =
 function (file)
 	Keybindings.setBinding(love.event.quit,'q',{'ctrl'})
 	Keybindings.setBinding(function () State.getState():maximize() end,'up',{'ctrl'})
+	Keybindings.setBinding(State.nextState, 'tab', {'ctrl'})
+	Keybindings.setBinding(State.previousState, 'tab', {'ctrl','shift'})
 end
 
-love.keyboard.getModifiers =
-function ()
-	local alt = (love.keyboard.isDown('lalt') or love.keyboard.isDown('ralt')) and 'alt' or nil
-	local ctrl = (love.keyboard.isDown('lctrl') or love.keyboard.isDown('rctrl')) and 'ctrl' or nil
-	local shift = (love.keyboard.isDown('lshift') or love.keyboard.isDown('rshift')) and 'shift' or nil
-	alt = alt and ( alt .. ( (ctrl or shift) and ' ' or '' ) ) or ''
-	ctrl = ctrl and ( ctrl .. ( shift and ' ' or '' ) ) or ''
-	shift = shift or ''
-	print(alt .. ctrl .. shift)
-	return ( alt .. ctrl .. shift ):split()
-end
+return Keybindings

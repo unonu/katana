@@ -245,19 +245,20 @@ State.Render = Render
 State.modal = nil
 State.contextMenu = nil
 
-windowState = "edit"
-
 states = nil
+windowState = 1
 
 function State.init()
 	states = {  State.Edit.make(),
 			State.Effects.make(),
 			State.Audio.make(),
 			State.Render.make(), }
-	states['edit'] = states[1]
-	states['effects'] = states[2]
-	states['audio'] = states[3]
-	states['render'] = states[4]
+	states['edit'] = 1
+	states['effects'] = 2
+	states['audio'] = 3
+	states['render'] = 4
+	states._ = 1
+	states._names = {'edit','effects','audio','render'}
 end
 			
 function State.setModal(modal)
@@ -272,6 +273,22 @@ function State.getState()
 	return states[windowState]
 end
 
+function State.setState(name)
+	if states[name] then
+		windowState = states[name]
+	end
+end
 
+function State.nextState()
+	windowState = (windowState % 4) + 1
+end
+
+function State.previousState()
+	windowState = (windowState - 2) % 4 + 1
+end
+
+function State.getName()
+	return states._names[windowState]
+end
 
 return State

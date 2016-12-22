@@ -1,7 +1,8 @@
 					  require("lua.moreMath")
 					  require("lua.extra")
 					  require("lua.graphics")
-					  require("lua.keybinding")
+					  require("lua.ffmpeg")
+Keybindings 		= require("lua.keybinding")
 State 				= require("lua.state")
 Video 				= require("lua.video")
 serial				= require("lua.serial")
@@ -111,7 +112,6 @@ function love.load(arg)
 		States are: edit, effects, render ...        ]]
 	State.init()
 
-
 	Keybindings.loadBindings()
 
 	--[[ Timers are all automatically updated based on
@@ -138,7 +138,7 @@ function love.draw()
 	LG.setColor(colors.statusBar)
 	LG.rectangle("fill",2,LG.getHeight()-18,LG.getWidth()-4,16)
 	LG.setColor(colors.white)
-	LG.print("Mode: "..windowState,4,LG.getHeight()-18)
+	LG.print("Mode: "..State.getName(),4,LG.getHeight()-18)
 
 	if mouseTable.dragImage then
 		LG.setColor(255,255,255,40)
@@ -335,7 +335,6 @@ end
 
 function love.wheelmoved(x,y)
 	-- if x > 1 and x < LG.getWidth() - 1 and y > 1 and y < LG.getHeight() - 18 then
-			-- print("ahahahahah")
 		if State.modal then
 			if State.modal.wheelmoved then
 				State.modal:wheelmoved(x,y)
@@ -360,7 +359,6 @@ end
 function love.resize(w,h)
 
 	--[[ Notify the state of a window resize ]]
-
 	if not State.modal then
 		states[windowState]:resize(w,h)
 	else

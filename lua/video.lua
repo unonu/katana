@@ -15,6 +15,8 @@ void setData_24(char* dst, char* src, int w, int h);
 
 void setData_32(char* dst, char* src, int w, int h);
 
+void avUnwrapFrame(char* dst, char* src, int wrap, int w, int h);
+
 ]]
 
 imageDataExtra = FFI.load( "ffi/imageDataExtra.so" )
@@ -50,9 +52,15 @@ function VideoStream.make( path,width,height )
 	-- imageDataExtra.flush(s.data:getPointer(), s.color , s.width, s.height)
 	if path then
 		local f = s.stream:getFrame()
-		print('e', f)
-		imageDataExtra.setData_32(s.data:getPointer(), f , s.width, s.height)
-		s.width,s.height = s.stream.width or profile.width, s.stream.height or profile.height
+		s.width,s.height = s.stream.width or s.width, s.stream.height or s.height
+		-- print('e', FFI.sizeof(f), f)
+		-- print('f',tonumber(s.stream.frame.linesize[0]))
+		s.data = love.image.newImageData(profile.width,profile.height)
+		-- imageDataExtra.avUnwrapFrame(s.data:getPointer(), f, tonumber(s.stream.frame.linesize[0]), profile.width, profile.height)
+		imageDataExtra.setData_24(s.data:getPointer(), f , profile.width, profile.height)
+		-- imageDataExtra.setData_32(s.data:getPointer(), f , s.width, s.height)
+		-- print('g')
+		s.length = s.stream:getDuration()
 	end
 	s.image = love.graphics.newImage(s.data)
 
@@ -83,11 +91,12 @@ end
 
 function VideoStream:getFrame( location,w,_h )
 	local stamp = tostring(location)
-	local data = love.image.newImageData(w,_h)
+	local data = love.image.newImageData(w,_h or w)
 	-- data:setData(self.color:rep(w*(_h or w)))
 	-- imageDataExtra.flush(data:getPointer(), FFI.cast("char",self.color[1]), w, _h or w)
 	-- imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
-
+	-- local f = self.stream:getFrame()
+	-- imageDataExtra.sampleData_24(data:getPointer(), f, w, _h or w, self.width,self.height,0,0 )
 	imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
 
 	return love.graphics.newImage(data)
@@ -124,8 +133,10 @@ VideoStream.Stream.__index = VideoStream.Stream
 function VideoStream:getStream()
 	local s = {}
 	setmetatable(s, VideoStream.Stream)
-	s.position = 0
 	s.source = self
+	s.time = 0
+	s.position = 0
+	s.maxFrame = nil
 	s.length = self.length
 
 	return s
@@ -178,11 +189,13 @@ function Clip.make(path)
 	setmetatable(c, Clip)
 
 	c.path = path
+		--should check if exists but w/e
+	c.videoStream = VideoStream.make(path,c.width,c.height)
 	-- c.info = {}
 	-- c.info.metadata = {}
 	-- c.info.stream = {}
 
-	c.length = 25
+	c.length = c.videoStream.length
 	-- c.fps = nil
 	-- c.name = nil
 	-- c.width = nil
@@ -194,8 +207,6 @@ function Clip.make(path)
 
 	-- c:refresh()
 
-		--should check if exists but w/e
-	c.videoStream = VideoStream.make(path,c.width,c.height)
 
 	-- videoLoadChannel:push(path)
 	-- love.timer.sleep(.01)

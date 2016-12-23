@@ -4,6 +4,8 @@
 // 1 "/usr/include/stdc-predef.h" 1 3 4
 // 1 "<command-line>" 2
 // 1 "ffmpeg_inter.h"
+// 1 "../../libav-12/config.h" 1
+// 2 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavutil/avstring.h" 1
 // 24 "../../libav-12/libavutil/avstring.h"
 // 1 "/usr/lib/gcc/x86_64-linux-gnu/5/include/stddef.h" 1 3 4
@@ -130,7 +132,7 @@ const char *av_basename(const char *path);
 const char *av_dirname(char *path);
 // 243 "../../libav-12/libavutil/avstring.h"
 int av_match_name(const char *name, const char *names);
-// 2 "ffmpeg_inter.h" 2
+// 3 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavutil/pixdesc.h" 1
 // 25 "../../libav-12/libavutil/pixdesc.h"
 // 1 "/usr/include/inttypes.h" 1 3 4
@@ -680,7 +682,7 @@ const char *av_color_space_name(enum AVColorSpace space);
 
 
 const char *av_chroma_location_name(enum AVChromaLocation location);
-// 3 "ffmpeg_inter.h" 2
+// 4 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavformat/avformat.h" 1
 // 256 "../../libav-12/libavformat/avformat.h"
 // 1 "/usr/include/time.h" 1 3 4
@@ -8638,7 +8640,7 @@ const struct AVCodecTag *avformat_get_riff_video_tags(void);
 
 
 const struct AVCodecTag *avformat_get_riff_audio_tags(void);
-// 4 "ffmpeg_inter.h" 2
+// 5 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavdevice/avdevice.h" 1
 // 22 "../../libav-12/libavdevice/avdevice.h"
 // 1 "../../libav-12/libavdevice/version.h" 1
@@ -8661,7 +8663,7 @@ const char *avdevice_license(void);
 
 
 void avdevice_register_all(void);
-// 5 "ffmpeg_inter.h" 2
+// 6 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libswscale/swscale.h" 1
 // 36 "../../libav-12/libswscale/swscale.h"
 // 1 "../../libav-12/libswscale/version.h" 1
@@ -8842,12 +8844,12 @@ void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, int num_pix
 
 
 const AVClass *sws_get_class(void);
-// 6 "ffmpeg_inter.h" 2
+// 7 "ffmpeg_inter.h" 2
 // 1 "/usr/include/x86_64-linux-gnu/libavutil/audioconvert.h" 1 3 4
 
 // 1 "/usr/include/x86_64-linux-gnu/libavutil/version.h" 1 3 4
 // 3 "/usr/include/x86_64-linux-gnu/libavutil/audioconvert.h" 2 3 4
-// 7 "ffmpeg_inter.h" 2
+// 8 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavutil/colorspace.h" 1
 // 90 "../../libav-12/libavutil/colorspace.h"
 static inline int C_JPEG_TO_CCIR(int y) {
@@ -8856,7 +8858,7 @@ static inline int C_JPEG_TO_CCIR(int y) {
         y = 16;
     return y;
 }
-// 8 "ffmpeg_inter.h" 2
+// 9 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavutil/opt.h" 1
 // 33 "../../libav-12/libavutil/opt.h"
 // 1 "../../libav-12/libavutil/log.h" 1
@@ -8986,7 +8988,7 @@ int av_opt_get_q (void *obj, const char *name, int search_flags, AVRational *out
 int av_opt_get_dict_val(void *obj, const char *name, int search_flags, AVDictionary **out_val);
 // 544 "../../libav-12/libavutil/opt.h"
 int av_opt_copy(void *dest, const void *src);
-// 9 "ffmpeg_inter.h" 2
+// 10 "ffmpeg_inter.h" 2
 
 // 1 "../../libav-12/libavcodec/avfft.h" 1
 // 35 "../../libav-12/libavcodec/avfft.h"
@@ -9058,7 +9060,7 @@ enum DCTTransformType {
 DCTContext *av_dct_init(int nbits, enum DCTTransformType type);
 void av_dct_calc(DCTContext *s, FFTSample *data);
 void av_dct_end (DCTContext *s);
-// 11 "ffmpeg_inter.h" 2
+// 12 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavfilter/avfilter.h" 1
 // 45 "../../libav-12/libavfilter/avfilter.h"
 // 1 "/usr/lib/gcc/x86_64-linux-gnu/5/include/stddef.h" 1 3 4
@@ -9401,12 +9403,12 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
 int avfilter_graph_parse2(AVFilterGraph *graph, const char *filters,
                           AVFilterInOut **inputs,
                           AVFilterInOut **outputs);
-// 12 "ffmpeg_inter.h" 2
+// 13 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavfilter/avfiltergraph.h" 1
 // 25 "../../libav-12/libavfilter/avfiltergraph.h"
 // 1 "../../libav-12/libavfilter/avfilter.h" 1
 // 26 "../../libav-12/libavfilter/avfiltergraph.h" 2
-// 13 "ffmpeg_inter.h" 2
+// 14 "ffmpeg_inter.h" 2
 // 1 "../../libav-12/libavfilter/graphparser.c" 1
 // 37 "../../libav-12/libavfilter/graphparser.c"
 static int link_filter(AVFilterContext *src, int srcpad,
@@ -10000,4 +10002,4 @@ int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
     avfilter_inout_free(&open_outputs);
     return ret;
 }
-// 13 "ffmpeg_inter.h" 2
+// 14 "ffmpeg_inter.h" 2

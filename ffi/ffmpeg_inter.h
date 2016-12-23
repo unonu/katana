@@ -1,3 +1,4 @@
+#include "config.h"
 #include "libavutil/avstring.h"
 #include "libavutil/pixdesc.h"
 #include "libavformat/avformat.h"

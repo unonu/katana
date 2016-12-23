@@ -3,6 +3,7 @@ local FFI = require("ffi")
 local avcodec = FFI.load('avcodec-ffmpeg')
 local avformat = FFI.load('avformat-ffmpeg')
 local avutil = FFI.load('avutil-ffmpeg')
+local swscale = FFI.load('swscale-ffmpeg')
 local header = io.open('ffi/ffmpeg.h'):read('*a')
 FFI.cdef(header)
 
@@ -37,7 +38,7 @@ function avOpen(filename)
 end
 
 function rational2number(r)
-	return r.num/r.den
+	return tonumber(r.num/r.den)
 end
 
 
@@ -67,17 +68,20 @@ function avVideo.make(filename)
 			avAssert(avcodec.avcodec_open2(context, codec, nil))
 			av.videoContext = context
 			av.videoStream = i
-			av.numFrames = stream.nb_frames
+			av.numFrames = tonumber(stream.nb_frames)
 			av.framerate = rational2number(stream.avg_frame_rate)
 			-- duration in seconds
-			av.duration = stream.duration * rational2number(stream.time_base)
-			av.width = context.width
-			av.height = context.height
+			av.duration = tonumber(stream.duration)
+			if stream.time_base.num > 0 then
+				av.duration = av.duration * rational2number(stream.time_base)
+			end
+			av.width = tonumber(context.width)
+			av.height = tonumber(context.height)
 			
 		end
 		if context.codec_type == FFI.C.AVMEDIA_TYPE_AUDIO then
 			local codec = avcodec.avcodec_find_decoder(context.codec_id)
-			avAssert(avcodec.avcodec_open(context, codec))
+			avAssert(avcodec.avcodec_open2(context, codec, nil))
 			av.audioContext = context
 			av.audioStream = i
 		end
@@ -86,14 +90,35 @@ function avVideo.make(filename)
 
 
 	-- should check if it opened
-	-- av.file = io.open(filename,'rb')
+	av.file = io.open(filename,'rb')
 	-- reusable stuff so might contain garbage
-	av.packet = FFI.new("AVPacket")
+	av.packet = FFI.new("AVPacket") -- need to FREE
+	-- av.packet = avcodec.av_packet_alloc()
 	av.frame = avcodec.av_frame_alloc()
-	av.gotFrame = FFI.new("int[1]")
-	av.frameSize = av.videoContext.width * av.videoContext.height
+	av.buffFrame = avcodec.av_frame_alloc()
+	av.gotFrame = FFI.new("int[1]") -- need to FREE
+	av.frameSize = av.videoContext.width * av.videoContext.height * 3
 	-- 16 bpp? idk fix this later
-	-- av.buffer = FFI.new("int16_t[?]",av.frameSize[0] * 3)
+	av.bufferSize = avcodec.avpicture_get_size(avutil.AV_PIX_FMT_RGB24, profile.width,profile.height)
+	av.buffer = FFI.new("uint8_t[?]",av.bufferSize + 32) -- need to FREE
+
+	avcodec.avpicture_fill(FFI.cast("AVPicture *", av.buffFrame), av.buffer, avutil.AV_PIX_FMT_RGB24, profile.width,profile.height)
+
+	-- if the profile changes???? gotta adjust this context
+	av.scaleContext = swscale.sws_getContext(
+		av.videoContext.width,
+		av.videoContext.height,
+		av.videoContext.pix_fmt,
+
+		profile.width,
+		profile.height,
+
+		avutil.AV_PIX_FMT_RGB24,
+
+		4,
+		nil,nil,nil
+
+		)
 
 	return av
 end
@@ -102,18 +127,75 @@ function avVideo:getFrame()
 	print('a')
 
 	-- need to implement this loop
+	-- local data = self.file:read(self.bufferSize)
+	-- FFI.copy(self.packet.data, data, #data)
+	-- print(self.buffer[1024])
+	-- print(#data)
+	-- self.packet.size = #data
+	-- self.packet.data = self.buffer
 
-	local len = avAssert(avformat.av_read_frame(self.context, self.packet))
-	print('b',self.videoContext,self.frame,self.gotFrame[0],self.packet)
-	local n = avcodec.avcodec_decode_video2(self.videoContext,self.frame,self.gotFrame,self.packet)
-	print('c', self.gotFrame[0])
+	-- print(self.packet.size)
+	-- while self.packet.size > 0 do
+	while avAssert(avformat.av_read_frame(self.context, self.packet)) >= 0 do
 
-	-- error check
-	if n == -1 then return
-	elseif n < 0 then avAssert(n) end
-	print('d')
+		-- local ok = avAssert(avformat.av_read_frame(self.context, self.packet))
+		-- print('b',self.videoContext,self.frame,ok,self.packet)
+		local n = avcodec.avcodec_decode_video2(self.videoContext,self.frame,self.gotFrame,self.packet)
+		print('c',self.gotFrame[0], tonumber(n))
 
-	return self.frame.data[0]
+		-- error check
+		if n == -1 then return
+		elseif n < 0 then
+			avAssert(n)
+		end
+		if self.gotFrame[0] > 0 then
+			swscale.sws_scale(self.scaleContext,FFI.cast("const unsigned char* const*",self.frame.data),self.frame.linesize,0,self.videoContext.height,
+				self.buffFrame.data, self.buffFrame.linesize)
+			print('d', self.buffFrame.data[0])
+			return self.buffFrame.data[0]
+		end
+		self.packet.size = self.packet.size - (n/8)
+		self.packet.data = self.packet.data + (n/8)
+	end
+
+end
+
+function avVideo:sample(w,h)
+	-- THIS IS DISGUSTING
+	-- local sc = swscale.sws_getContext(
+	-- 	self.videoContext.width,
+	-- 	self.videoContext.height,
+	-- 	self.videoContext.pix_fmt,
+
+	-- 	w,
+	-- 	h,
+
+	-- 	avutil.AV_PIX_FMT_RGB24,
+
+	-- 	4,
+	-- 	nil,nil,nil
+
+	-- 	)
+
+	-- while avAssert(avformat.av_read_frame(self.context, self.packet)) >= 0 do
+	-- 	local n = avcodec.avcodec_decode_video2(self.videoContext,self.frame,self.gotFrame,self.packet)
+
+	-- 	-- error check
+	-- 	if n == -1 then return
+	-- 	elseif n < 0 then
+	-- 		avAssert(n)
+	-- 	end
+	-- 	if self.gotFrame[0] > 0 then
+	-- 		swscale.sws_scale(
+	-- 			self.scaleContext,FFI.cast("const unsigned char* const*",self.frame.data),
+	-- 			self.frame.linesize,0,self.videoContext.height,
+	-- 			self.buffFrame.data, self.buffFrame.linesize)
+	-- 		print('d', self.buffFrame.data[0])
+	-- 		return self.buffFrame.data[0]
+	-- 	end
+	-- 	self.packet.size = self.packet.size - (n/8)
+	-- 	self.packet.data = self.packet.data + (n/8)
+	-- end
 end
 
 function avVideo:getWidth()

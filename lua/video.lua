@@ -47,9 +47,7 @@ function VideoStream.make( path,width,height )
 	s.stream = path and avVideo.make(path)
 	s.width,s.height = width or profile.width, height or profile.height
 	s.data = love.image.newImageData(s.width,s.height)
-	-- s.data:setData(s.color:rep(s.width*s.height))
-	-- imageDataExtra.flush(s.data:getPointer(), FFI.cast("char",s.color[1]) , s.width, s.height)
-	-- imageDataExtra.flush(s.data:getPointer(), s.color , s.width, s.height)
+
 	if path then
 		local f = s.stream:getFrame()
 		s.width,s.height = s.stream.width or s.width, s.stream.height or s.height
@@ -67,75 +65,40 @@ function VideoStream.make( path,width,height )
 	return s
 end
 
--- function VideoStream.make(path,width,height)
--- 	local s = {}
--- 	setmetatable(s, VideoStream)
--- 	s.path = path
--- 	s.stream = nil
--- 	print("VS make",path,MLTProfile)
--- 	s.producer = MLT.Producer( MLTProfile, path )
--- 	--[[audio consumer needed ]]
--- 	s.width,s.height = width or 640, height or 480
--- 	s.data = love.image.newImageData(s.width,s.height)
--- 	s.image = love.graphics.newImage(s.data)
-
--- 	print(mlt_image_rgb24,MLT.mlt_image_rgb24,mlt.mlt_image_rgb24)
--- 	s.data:setData(s.producer:get_frame():get_image( 1, 128,128 ))
--- 	s.image:refresh()
-
--- 	return s
--- end
-
 -- --[[ Grab a frame from the video at a specified time.
 -- 	This function may be slow if called repeatedly.  ]]
 
-function VideoStream:getFrame( location,w,_h )
-	local stamp = tostring(location)
-	local data = love.image.newImageData(w,_h or w)
-	-- data:setData(self.color:rep(w*(_h or w)))
-	-- imageDataExtra.flush(data:getPointer(), FFI.cast("char",self.color[1]), w, _h or w)
+function VideoStream:getData()
+	-- local data = love.image.newImageData(w,_h or w)
 	-- imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
-	-- local f = self.stream:getFrame()
-	-- imageDataExtra.sampleData_24(data:getPointer(), f, w, _h or w, self.width,self.height,0,0 )
-	imageDataExtra.flush(data:getPointer(), self.color, w, _h or w)
 
-	return love.graphics.newImage(data)
+	if self.stream then
+		return self.stream:getFrame()
+	end
+
+	return self.data:getPointer()
 end
--- function VideoStream:getFrame(location,w,_h)
--- 	-- local stamp = tostring(location)
--- 	-- print("called $getFrame",location,f,s,m,h,stamp)
 
--- 	-- -- self.stream = io.popen( "ffmpeg -loglevel fatal"..
--- 	-- -- 						" -ss "..stamp..
--- 	-- -- 						" -i \""..self.path..'\"'..
--- 	-- -- 						" -s "..(w or self.width)..'x'..(_h or self.height)..
--- 	-- -- 						" -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -t 1 -")
+function VideoStream:getThumbnail(w,h)
 
--- 	-- -- self.stream:setvbuf("full",(w or self.width)*(_h or self.height)*3)
--- 	-- -- local data = love.image.newImageData(w,_h)
--- 	-- -- local raw = self.stream:read((w or self.width)*(_h or self.height)*3)
--- 	-- -- print("thumb from",stamp)
--- 	-- -- data:setData(raw)
--- 	-- -- self.stream:flush()
--- 	-- -- self.stream:close()
--- 	-- -- self.stream = nil
--- 	-- local data = self.producer:getFrame()
+	local data = love.image.newImageData(w,h or w)
+	imageDataExtra.flush(data:getPointer(), self.color, w, h or w)
+	return love.graphics.newImage(data)
 
--- 	-- return love.graphics.newImage(data)
--- 	local mltFrame = self.producer:getFrame()
--- 	return mltFrame:getImage(MLT.mlt_image_rgb24)
--- end
+end
 
 -- --[[ Get access to the video stream ]]
 VideoStream.Stream = {}
 VideoStream.Stream.__index = VideoStream.Stream
 
 function VideoStream:getStream()
+	if not self.stream then return nil end
 	local s = {}
 	setmetatable(s, VideoStream.Stream)
 	s.source = self
 	s.time = 0
 	s.position = 0
+	s.fps = self.stream:getFramerate()
 	s.maxFrame = nil
 	s.length = self.length
 
@@ -155,25 +118,6 @@ end
 		return self.source.data:getPointer()
 		-- return -- this frame
 	end
--- function VideoStream:getStream(location,length,w,h)
--- 	-- local stamp = 	tostring(location)
--- 	-- local duration = tostring(length)
-
--- 	-- -- self.stream = io.popen( "ffmpeg -loglevel fatal"..
--- 	-- -- 						" -ss "..stamp..
--- 	-- -- 						" -i \""..self.path..'\"'..
--- 	-- -- 						" -s "..(w or self.width)..'x'..(h or self.height)..
--- 	-- -- 						-- " -to "..duration..
--- 	-- -- 						" -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -")
--- 	-- self.stream:setvbuf("full",(w or self.width)*(h or self.height)*3)
--- 	-- return self.stream
--- end
-
--- --[[ Properly close the video stream ]]
-
--- function VideoStream:closeStream()
--- 	-- self.stream:close()
--- end
 
 
 --[[ The clip holds a video and the info related
@@ -188,20 +132,24 @@ function Clip.make(path)
 	local c = {}
 	setmetatable(c, Clip)
 
-	c.path = path
-		--should check if exists but w/e
-	c.videoStream = VideoStream.make(path,c.width,c.height)
+	if path then
+		c.path = path
+			--should check if exists but w/e
+		c.videoStream = VideoStream.make(path,c.width,c.height)
 	-- c.info = {}
 	-- c.info.metadata = {}
 	-- c.info.stream = {}
 
-	c.length = c.videoStream.length
-	-- c.fps = nil
+		c.position = 0
+		c.length = c.videoStream.length
+		print(c.length)
+		c.framerate = c.videoStream.framerate
 	-- c.name = nil
 	-- c.width = nil
 	-- c.height = nil
 
-	c.thumb = nil
+		c.thumb = nil
+	end
 
 	c.references = {}
 
@@ -216,47 +164,31 @@ function Clip.make(path)
 	return c
 end
 
-function Clip:setThumbnail()
-	local frame = self.videoStream:getFrame()
-	frame = love.graphics.newImageData(frame)
-	self.thumb = love.graphics.newImage(frame)
+function Clip.__len(c)
+	print('kllopp',c.length)
+	return c.length or 0
 end
 
-function Clip:getStream(location,duration)
+function Clip:setThumbnail()
+	-- local thumb = self.videoStream:getThumbnail(100,100)
+	-- local frame = love.graphics.newImageData(100,100)
+	-- imageDataExtra.setData_24(frame,thumb,100,100)
+	-- self.thumb = love.graphics.newImage(frame)
+	self.thumb = self.videoStream:getThumbnail(100,100)
+end
+
+function Clip:getData(location,duration)
 	-- return self.videoStream:getStream(location or 0, duration or self.length, self.width,self.height)
 	-- return self.cacheFile
-	return self.videoStream:getStream()
+	return self.videoStream:getData()
 end
 
-function Clip:refresh()
-	--[[ Here, the info for the video file is parsed. ]]
+function Clip:getFramerate()
+	return self.framerate
+end
 
-	-- local stream = {io.popen( "ffprobe -hide_banner -pretty -print_format csv \""..self.path..'\" 2>&1' ),true}
-
-	-- stream[2] = stream[1]:read("*l")
-	-- while (stream[2]) do
-	-- 	local key, value = stream[2]:match( "%s*([%w_]*)[%p%s]-(.*)" )
-	-- 	print("match",key,value)
-	-- 	if key == "Stream" then
-	-- 		local s, c = value:match("#(%d+):(%d+)")
-	-- 		print(s,c,value)
-	-- 		if not self.info.stream[tonumber(s)] then
-	-- 			self.info.stream[tonumber(s)] = {} end
-	-- 		self.info.stream[tonumber(s)][tonumber(c)] = {value:match( "#%d+:%d+: (%w+):.*" )}
-	-- 		local width,height = value:match(", (%d+)x(%d+),-")
-	-- 		if tonumber(width or 0) > (self.width or 0) then
-	-- 			self.width, self.height = tonumber(width), tonumber(height) end
-	-- 		self.fps = tonumber( value:match("([%d%.]+) fps") ) or self.fps or profile.fps
-	-- 		print("width,height",self.width,self.height)
-	-- 		print(self.fps)
-	-- 	elseif key == "Duration" then
-	-- 		local h,m,s = value:match("(%d*):(%d*):([%d%.]*)")
-	-- 		self.length = tonumber(h)*360 + tonumber(m)*60 + tonumber(s)
-
-	-- 	end
-	-- 	stream[2] = stream[1]:read("*l")
-	-- end
-
+function Clip:getPosition()
+	return self.position
 end
 
 --[[ Creates a new reference to a clip. Valid
@@ -289,34 +221,38 @@ function Reference.make(clip,type,index)
 	r.type = type
 	r.clip = clip
 	r.index = index 		-- Index in the clip's references
-	r.thumb = clip.videoStream:getFrame(clip.length*.5,48,48)
+	r.thumb = clip.thumb
 
 	return r
 end
 
-function Reference:setStartPoint(location)
-	local stamp = 	tostring(location)
+function Reference:getData(position)
+	return self.clip.videoStream:getFrame()
+end
+
+function Reference:setStartPoint(position)
+	local stamp = tostring(position)
 
 	self.start = math.max(tonumber(stamp), 0)
 	self.length = self._end - self.start
 end
 
-function Reference:setEndPoint(location)
-	local stamp = 	tostring(location)
+function Reference:setEndPoint(position)
+	local stamp = tostring(position)
 
 	self._end = math.min(tonumber(stamp), self.clip.length)
 	self.length = self._end - self.start
 end
 
-function Reference:setInPoint(location)
-	local stamp = 	tostring(location)
+function Reference:setInPoint(position)
+	local stamp = tostring(position)
 
 	self._in = math.max(tonumber(stamp), 0)
 	self.out = self._in + self.length
 end
 
 function Reference:move(distance)
-	local stamp = 	tostring(distance)
+	local stamp = tostring(distance)
 
 	-- self._in = self._in + tonumber(stamp)
 	self._in = self._in + distance

@@ -124,7 +124,7 @@ function avVideo.make(filename)
 end
 
 function avVideo:getFrame()
-	print('a')
+	-- print('a')
 
 	-- need to implement this loop
 	-- local data = self.file:read(self.bufferSize)
@@ -136,12 +136,12 @@ function avVideo:getFrame()
 
 	-- print(self.packet.size)
 	-- while self.packet.size > 0 do
-	while avAssert(avformat.av_read_frame(self.context, self.packet)) >= 0 do
+	while avformat.av_read_frame(self.context, self.packet) >= 0 do
 
 		-- local ok = avAssert(avformat.av_read_frame(self.context, self.packet))
 		-- print('b',self.videoContext,self.frame,ok,self.packet)
 		local n = avcodec.avcodec_decode_video2(self.videoContext,self.frame,self.gotFrame,self.packet)
-		print('c',self.gotFrame[0], tonumber(n))
+		-- print('c',self.gotFrame[0], tonumber(n))
 
 		-- error check
 		if n == -1 then return
@@ -151,7 +151,7 @@ function avVideo:getFrame()
 		if self.gotFrame[0] > 0 then
 			swscale.sws_scale(self.scaleContext,FFI.cast("const unsigned char* const*",self.frame.data),self.frame.linesize,0,self.videoContext.height,
 				self.buffFrame.data, self.buffFrame.linesize)
-			print('d', self.buffFrame.data[0])
+			-- print('d', self.buffFrame.data[0])
 			return self.buffFrame.data[0]
 		end
 		self.packet.size = self.packet.size - (n/8)
@@ -215,7 +215,7 @@ function avVideo:getDuration()
 end
 
 -- should adapt for variable framerates
-function avVideo:getFPS()
+function avVideo:getFramerate()
 	return self.framerate
 end
 

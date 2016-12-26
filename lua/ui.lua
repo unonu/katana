@@ -325,12 +325,12 @@ function VideoFrame.make()
 		3 : fast forward                       ]]
 
 	w.state = 0
-	w.stream = nil
+	w.source = nil
 	w.data = nil
-	w.frame = nil
-	w.frameWidth = profile.width
-	w.frameHeight = profile.height
-	w.fps = profile.fps
+	w.image = nil
+	w.sourceWidth = profile.width
+	w.sourceHeight = profile.height
+	w.framerate = profile.framerate
 	w.duration = nil
 
 	--[[ The buffer caches frame data.
@@ -355,102 +355,123 @@ function VideoFrame.make()
 	return w
 end
 
-function VideoFrame:setStream(stream,w,h,duration,fps,frame)
-	-- print(w,h,duration,fps)
-	self.stream = stream
-	self.data = stream and love.image.newImageData(w or profile.width, h or profile.height) or nil
-	self.frame = stream and love.graphics.newImage(self.data) or nil
-	self.frameWidth = w or profile.width
-	self.frameHeight = h or profile.height
-	self.fps = fps or profile.fps
-	self.duration = duration or nil
+function VideoFrame:setSource(source)
+	-- print(w,h,duration,framerate)
+	-- if source.type ~= "video" then return end
+
+	self.source = source
+	-- self.data = source and love.image.newImageData(w or profile.width, h or profile.height) or nil
+	-- self.frame = source and love.graphics.newImage(self.data) or nil
+	self.sourceWidth = source.width or profile.width
+	self.sourceHeight = source.height or profile.height
+	self.framerate = source:getFramerate() or profile.framerate
+	self.duration = source.length or nil
+	print("asdfasdfasd", self.duration)
 	-- -- self.buffer = {}
 	-- self.buffer = 0
 	-- self.bufferFile:close()
 	-- self.bufferFile = io.tmpfile()
-	-- self.bufferFile:setvbuf("full",self.frameWidth*self.frameHeight*3)
+	-- self.bufferFile:setvbuf("full",self.sourceWidth*self.sourceHeight*3)
 	-- print("buffer file len",self.bufferFile:seek("end"))
 	-- self.bufferFile:seek("set")
-	if not frame then
-		self.time = 0
-	else
+	-- if not frame then
+	self.time = source:getPosition()
+	-- else
 		--set time from frame or whatever
-	end
+	-- end
+	self.data = love.image.newImageData(self.sourceWidth,self.sourceHeight)
+	self.image = love.graphics.newImage(self.data)
 	self.refresh = true
-	self:updateStream(0)
-	-- print("stream set, "..self.frameWidth,self.frameHeight)
+	-- self:updateStream(0)
+	-- print("stream set, "..self.sourceWidth,self.sourceHeight)
 end
 
-function VideoFrame:updateStream(dt)
-	if self.stream then
-		self.time = self.time + dt*self.state
+function VideoFrame:updateImage(dt)
+	if not self.source then return end
+	local data = self.data:getPointer()
+	-- print('hey')
+	-- print(self.sourceWidth,self.sourceHeight,data,self.source:getData())
+	imageDataExtra.setData_24(data,self.source:getData(),self.sourceWidth,self.sourceHeight)
+	self.image:refresh()
 
-		if self.time < 0 then
-			self.state = 0
-			self.time = 0
-			self.refresh = true
-		elseif self.time > self.duration then
-			self.state = 0
-			self.time = self.duration
-			self.refresh = true
-			-- self.buffer[#self.buffer+1] = true -- duplicat last frame
-			-- self.stream:close()
-		end
+	-- assuming now that *.getData returns the correct frame for the current position.
 
-		-- local bufferIndex = self:getBuffer(self.time)
-		-- if self.buffer[bufferIndex] then
-		-- imageDataExtra.setData_24(self.data:getPointer(), self.stream:next(), self.frameWidth, self.frameHeight)
-		-- if self.time ~= 0 then
-		if self.refresh then
-			imageDataExtra.setData_32(self.data:getPointer(), self.stream:next(), self.frameWidth, self.frameHeight)
-			self.frame:refresh()
-			self.refresh = false
-		end
-		-- end
-		--[[
-		if bufferIndex <= self.buffer then
-			self.bufferFile:seek("set",bufferIndex*self.frameWidth*self.frameHeight*3)
-			local raw = self.bufferFile:read(self.frameWidth*self.frameHeight*3)
-			if raw then
-				self.data:setData(raw)
-				self.frame:refresh()
-			end
-			-- self.bufferFile:flush()
-		else
-			-- if self.state == 2 then
-			-- 	self.stream:read(self.frameWidth*self.frameHeight*3)
-			-- 	self.stream:flush()
-			-- elseif self.state == 3 then
-			-- 	self.stream:read(self.frameWidth*self.frameHeight*6)
-			-- 	self.stream:flush()
-			-- end
-			local raw = self.stream:read(self.frameWidth*self.frameHeight*3)
-			-- self.buffer[bufferIndex] = true
-			self.buffer = bufferIndex
-			if raw then
-				self.bufferFile:write(raw)
-				self.data:setData(raw)
-				self.frame:refresh()
-				self.bufferFile:flush()
-			end
-			self.stream:flush()
-		end]]
-		-- if bufferIndex ~= self.buffer then
-		-- 	if math.abs(bufferIndex - self.buffer) > 1 then
-		-- 		self.strea:seek("set",bufferIndex*self.frameWidth*self.frameHeight*3)
-		-- 	end
-		-- 	self.buffer = bufferIndex
-		-- 	local raw = self.stream:read(self.frameWidth*self.frameHeight*3)
-		-- 	if raw then
-		-- 		self.data:setData(raw)
-		-- 		self.frame:refresh()
-		-- 	end
-		-- end
-	end
 end
+
+-- function VideoFrame:updateStream(dt)
+	-- if self.stream then
+	-- 	self.time = self.time + dt*self.state
+
+	-- 	if self.time < 0 then
+	-- 		self.state = 0
+	-- 		self.time = 0
+	-- 		self.refresh = true
+	-- 	elseif self.time > self.duration then
+	-- 		self.state = 0
+	-- 		self.time = self.duration
+	-- 		self.refresh = true
+	-- 		-- self.buffer[#self.buffer+1] = true -- duplicat last frame
+	-- 		-- self.stream:close()
+	-- 	end
+
+	-- 	-- local bufferIndex = self:getBuffer(self.time)
+	-- 	-- if self.buffer[bufferIndex] then
+	-- 	-- imageDataExtra.setData_24(self.data:getPointer(), self.stream:next(), self.sourceWidth, self.sourceHeight)
+	-- 	-- if self.time ~= 0 then
+	-- 	if self.refresh then
+	-- 		imageDataExtra.setData_32(self.data:getPointer(), self.stream:next(), self.sourceWidth, self.sourceHeight)
+	-- 		self.frame:refresh()
+	-- 		self.refresh = false
+	-- 	end
+	-- 	-- end
+	-- 	--[[
+	-- 	if bufferIndex <= self.buffer then
+	-- 		self.bufferFile:seek("set",bufferIndex*self.sourceWidth*self.sourceHeight*3)
+	-- 		local raw = self.bufferFile:read(self.sourceWidth*self.sourceHeight*3)
+	-- 		if raw then
+	-- 			self.data:setData(raw)
+	-- 			self.frame:refresh()
+	-- 		end
+	-- 		-- self.bufferFile:flush()
+	-- 	else
+	-- 		-- if self.state == 2 then
+	-- 		-- 	self.stream:read(self.sourceWidth*self.sourceHeight*3)
+	-- 		-- 	self.stream:flush()
+	-- 		-- elseif self.state == 3 then
+	-- 		-- 	self.stream:read(self.sourceWidth*self.sourceHeight*6)
+	-- 		-- 	self.stream:flush()
+	-- 		-- end
+	-- 		local raw = self.stream:read(self.sourceWidth*self.sourceHeight*3)
+	-- 		-- self.buffer[bufferIndex] = true
+	-- 		self.buffer = bufferIndex
+	-- 		if raw then
+	-- 			self.bufferFile:write(raw)
+	-- 			self.data:setData(raw)
+	-- 			self.frame:refresh()
+	-- 			self.bufferFile:flush()
+	-- 		end
+	-- 		self.stream:flush()
+	-- 	end]]
+	-- 	-- if bufferIndex ~= self.buffer then
+	-- 	-- 	if math.abs(bufferIndex - self.buffer) > 1 then
+	-- 	-- 		self.strea:seek("set",bufferIndex*self.sourceWidth*self.sourceHeight*3)
+	-- 	-- 	end
+	-- 	-- 	self.buffer = bufferIndex
+	-- 	-- 	local raw = self.stream:read(self.sourceWidth*self.sourceHeight*3)
+	-- 	-- 	if raw then
+	-- 	-- 		self.data:setData(raw)
+	-- 	-- 		self.frame:refresh()
+	-- 	-- 	end
+	-- 	-- end
+	-- end
+-- end
 
 function VideoFrame:getBuffer(t)
-	return math.floor(math.min(math.max(0, t*self.fps ),self.duration*self.fps -1))
+	return math.floor(math.min(math.max(0, t*self.framerate ),self.duration*self.framerate -1))
+end
+
+function VideoFrame:setTime(t)
+	self.time = t
 end
 
 function VideoFrame:setState(state)
@@ -469,22 +490,23 @@ function VideoFrame:draw()
 	love.graphics.setColor(colors.widget)
 	love.graphics.rectangle("fill", 0,0,self.width,self.height)
 
-	local scale = self.frameScale*math.min(self.width/(self.frameWidth),
-											(self.height-48)/(self.frameHeight))
-	local x = (self.width/2) - (self.frameWidth/2)*scale - self.offset[1]
-	local y = (self.height/2) - (self.frameHeight/2)*scale - self.offset[2]
-	if self.frame then
+	local scale = self.frameScale*math.min(self.width/(self.sourceWidth),
+											(self.height-48)/(self.sourceHeight))
+	local x = (self.width/2) - (self.sourceWidth/2)*scale - self.offset[1]
+	local y = (self.height/2) - (self.sourceHeight/2)*scale - self.offset[2]
+	if self.source and self.image then
 
 		love.graphics.setColor(colors.white)
-		love.graphics.draw(self.frame,x,y,0,scale)
+		-- think of a better name for getImage? or find a way to just pass in the source?
+		love.graphics.draw(self.image,x,y,0,scale)
 
-		love.graphics.setColor(255,0,0)
+		love.graphics.setColor(255,0,0,128)
 		love.graphics.rectangle("line",x,y,profile.width*scale,profile.height*scale)
 	else
 
 		love.graphics.setColor(0,0,0)
 		love.graphics.rectangle("fill",x,y,profile.width*scale,profile.height*scale)
-		love.graphics.setColor(255,255,255)
+		love.graphics.setColor(255,255,255,128)
 		love.graphics.printf('No Clip', x,y + profile.height*scale/2,profile.width*scale, "center")
 		-- love.graphics.print(x .. ', ' .. y .. '\n' .. self.x .. ', ' .. self.y
 		-- 	.. '\n'.. scale, x,y)
@@ -497,7 +519,7 @@ function VideoFrame:draw()
 		--draw control buttons
 
 		love.graphics.setColor(colors.white)
-		if self.stream then
+		if self.source then
 			love.graphics.print(toHMS(self.time)..'/'..toHMS(self.duration or 0),124,self.height-20)
 		else
 			love.graphics.print('--.--.--/--.--.--',124,self.height-20)
@@ -516,10 +538,11 @@ function VideoFrame:update(dt,x,y)
 	local mx, my = mouseTable.x,mouseTable.y
 	mx, my = mx - (x or 0), my - (y or 0)
 
-	local scale = self.frameScale*math.min(self.width/(self.frameWidth),
-												(self.height-24)/(self.frameHeight))
-	if (self.frameWidth*scale > self.width or
-		self.frameHeight*scale > self.height) then
+	local scale = self.frameScale*math.min(self.width/(self.sourceWidth),
+												(self.height-24)/(self.sourceHeight))
+	if (self.sourceWidth*scale > self.width or
+		self.sourceHeight*scale > self.height) then
+		self.moveable = true
 		if self.offset[3] then
 			self.offset[1] = self.offset[1] - (mx - self.offset[3])
 			self.offset[3] = mx
@@ -528,11 +551,12 @@ function VideoFrame:update(dt,x,y)
 			cursorRequest = "hand"
 		end
 	else
+		self.moveable = false
 		self.offset[1] = 0
 		self.offset[2] = 0
 	end
 
-	self:updateStream(dt)
+	self:updateImage(dt)
 
 end
 
@@ -598,9 +622,9 @@ function VideoFrame:keypressed(k)
 		elseif k == 'l' then
 			self.state = math.min(self.state +1, 1) -- i just limited this to normal speed
 		elseif k == 'left' then
-			self.time = self.time - 1/self.fps
+			self.time = self.time - 1/self.framerate
 		elseif k == 'right' then
-			self.time = self.time + 1/self.fps
+			self.time = self.time + 1/self.framerate
 		end
 	end
 end
@@ -644,16 +668,12 @@ function ClipList:openClips(files)
 		-- print(files[i])
 		self.clips[#self.clips+1] = Video.Clip.make(files[i])
 		-- print("open lip thum",self.clips[#self.clips].length*.5)
-		self.clips[#self.clips].thumb = self.clips[#self.clips].videoStream:getFrame(self.clips[#self.clips].length*.5,48,48)
+		self.clips[#self.clips].thumb = self.clips[#self.clips].videoStream:getThumbnail(48,48)
 	end
 
 	self.lastSelected = #self.clips
 	if self.videoFrame and #self.clips > 0 then
-		self.videoFrame:setStream(self.clips[#self.clips]:getStream(),
-									self.clips[#self.clips].width,
-									self.clips[#self.clips].height,
-									self.clips[#self.clips].length,
-									self.clips[#self.clips].fps)
+		self.videoFrame:setSource(self.clips[#self.clips])
 	end
 
 	self.drawScroll = (#self.clips > (self.height-24)/100)
@@ -896,21 +916,13 @@ function ClipList:mousepressed(x,y,button)
 						self.selected[i] = true
 						self.lastSelected = i
 						self.videoFrame:setState(0)
-						self.videoFrame:setStream(self.clips[i]:getStream(),
-													self.clips[i].width,
-													self.clips[i].height,
-													self.clips[i].length,
-													self.clips[i].fps)
+						self.videoFrame:setSource(self.clips[i])
 					else
 						if love.keyboard.isDown('lctrl','rctrl') then
 							self.selected[i] = false
 							self.lastSelected = table.maxn(self.selected) or 0
 							if self.lastSelected ~= 0 then
-							self.videoFrame:setStream(self.clips[self.lastSelected]:getStream(),
-														self.clips[self.lastSelected].width,
-														self.clips[self.lastSelected].height,
-														self.clips[self.lastSelected].length,
-														self.clips[self.lastSelected].fps)
+							self.videoFrame:setSource(self.clips[self.lastSelected])
 							end
 						end
 					end
@@ -1049,7 +1061,7 @@ function Tracker.make()
 	w.playheadHeld = false
 	w.length = 10
 
-	w.masterStream = VideoStream.make(nil, profile.width, profile.height)
+	w.masterClip = Clip.make(nil, profile.width, profile.height)
 	w.videoFrame = nil
 	w.contextPrime = false
 
@@ -1364,11 +1376,7 @@ function Tracker:mousepressed(x,y,button)
 					self.playheadHeld = true
 				end
 				if self.videoFrame then
-					self.videoFrame:setStream(self.masterStream:getStream(),
-												profile.width,
-												profile.height,
-												self.length,
-												profile.fps)
+					self.videoFrame:setSource(self.masterClip)
 				end
 			elseif button == MMB then
 				print("should cut clip when possible")

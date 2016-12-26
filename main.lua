@@ -97,7 +97,7 @@ function love.load(arg)
 	profile = {}
 	profile.width = 1280
 	profile.height = 720
-	profile.fps = 30
+	profile.framerate = 30
 
 	--[[ Video loading thread. It takes the path to a
 		file to store the video in then loads all of

@@ -343,6 +343,8 @@ function VideoFrame.make()
 	w.bufferFile = io.tmpfile()
 
 	w.time = 0
+	w.frameTimer = 0
+	w.frameStep = 0
 	w.refresh = false
 
 	w.moveable = false
@@ -352,6 +354,8 @@ function VideoFrame.make()
 	w.showControls = true
 	w.contextPrime = false
 
+	w.sync = false
+
 	return w
 end
 
@@ -360,13 +364,15 @@ function VideoFrame:setSource(source)
 	-- if source.type ~= "video" then return end
 
 	self.source = source
+	self:setState(0)
 	-- self.data = source and love.image.newImageData(w or profile.width, h or profile.height) or nil
 	-- self.frame = source and love.graphics.newImage(self.data) or nil
 	self.sourceWidth = source.width or profile.width
 	self.sourceHeight = source.height or profile.height
 	self.framerate = source:getFramerate() or profile.framerate
+	self.frameStep = 1/self.framerate
 	self.duration = source.length or nil
-	print("asdfasdfasd", self.duration)
+	-- print("asdfasdfasd", self.duration)
 	-- -- self.buffer = {}
 	-- self.buffer = 0
 	-- self.bufferFile:close()
@@ -375,13 +381,16 @@ function VideoFrame:setSource(source)
 	-- print("buffer file len",self.bufferFile:seek("end"))
 	-- self.bufferFile:seek("set")
 	-- if not frame then
-	self.time = source:getPosition()
+	self:setTime(source:getPosition())
 	-- else
 		--set time from frame or whatever
 	-- end
 	self.data = love.image.newImageData(self.sourceWidth,self.sourceHeight)
 	self.image = love.graphics.newImage(self.data)
-	self.refresh = true
+
+
+	self:updateImage(dt)
+	self.sync = false
 	-- self:updateStream(0)
 	-- print("stream set, "..self.sourceWidth,self.sourceHeight)
 end
@@ -391,6 +400,7 @@ function VideoFrame:updateImage(dt)
 	local data = self.data:getPointer()
 	-- print('hey')
 	-- print(self.sourceWidth,self.sourceHeight,data,self.source:getData())
+	-- self.source:seek(self.time)
 	imageDataExtra.setData_24(data,self.source:getData(),self.sourceWidth,self.sourceHeight)
 	self.image:refresh()
 
@@ -398,84 +408,21 @@ function VideoFrame:updateImage(dt)
 
 end
 
--- function VideoFrame:updateStream(dt)
-	-- if self.stream then
-	-- 	self.time = self.time + dt*self.state
-
-	-- 	if self.time < 0 then
-	-- 		self.state = 0
-	-- 		self.time = 0
-	-- 		self.refresh = true
-	-- 	elseif self.time > self.duration then
-	-- 		self.state = 0
-	-- 		self.time = self.duration
-	-- 		self.refresh = true
-	-- 		-- self.buffer[#self.buffer+1] = true -- duplicat last frame
-	-- 		-- self.stream:close()
-	-- 	end
-
-	-- 	-- local bufferIndex = self:getBuffer(self.time)
-	-- 	-- if self.buffer[bufferIndex] then
-	-- 	-- imageDataExtra.setData_24(self.data:getPointer(), self.stream:next(), self.sourceWidth, self.sourceHeight)
-	-- 	-- if self.time ~= 0 then
-	-- 	if self.refresh then
-	-- 		imageDataExtra.setData_32(self.data:getPointer(), self.stream:next(), self.sourceWidth, self.sourceHeight)
-	-- 		self.frame:refresh()
-	-- 		self.refresh = false
-	-- 	end
-	-- 	-- end
-	-- 	--[[
-	-- 	if bufferIndex <= self.buffer then
-	-- 		self.bufferFile:seek("set",bufferIndex*self.sourceWidth*self.sourceHeight*3)
-	-- 		local raw = self.bufferFile:read(self.sourceWidth*self.sourceHeight*3)
-	-- 		if raw then
-	-- 			self.data:setData(raw)
-	-- 			self.frame:refresh()
-	-- 		end
-	-- 		-- self.bufferFile:flush()
-	-- 	else
-	-- 		-- if self.state == 2 then
-	-- 		-- 	self.stream:read(self.sourceWidth*self.sourceHeight*3)
-	-- 		-- 	self.stream:flush()
-	-- 		-- elseif self.state == 3 then
-	-- 		-- 	self.stream:read(self.sourceWidth*self.sourceHeight*6)
-	-- 		-- 	self.stream:flush()
-	-- 		-- end
-	-- 		local raw = self.stream:read(self.sourceWidth*self.sourceHeight*3)
-	-- 		-- self.buffer[bufferIndex] = true
-	-- 		self.buffer = bufferIndex
-	-- 		if raw then
-	-- 			self.bufferFile:write(raw)
-	-- 			self.data:setData(raw)
-	-- 			self.frame:refresh()
-	-- 			self.bufferFile:flush()
-	-- 		end
-	-- 		self.stream:flush()
-	-- 	end]]
-	-- 	-- if bufferIndex ~= self.buffer then
-	-- 	-- 	if math.abs(bufferIndex - self.buffer) > 1 then
-	-- 	-- 		self.strea:seek("set",bufferIndex*self.sourceWidth*self.sourceHeight*3)
-	-- 	-- 	end
-	-- 	-- 	self.buffer = bufferIndex
-	-- 	-- 	local raw = self.stream:read(self.sourceWidth*self.sourceHeight*3)
-	-- 	-- 	if raw then
-	-- 	-- 		self.data:setData(raw)
-	-- 	-- 		self.frame:refresh()
-	-- 	-- 	end
-	-- 	-- end
-	-- end
--- end
-
 function VideoFrame:getBuffer(t)
 	return math.floor(math.min(math.max(0, t*self.framerate ),self.duration*self.framerate -1))
 end
 
 function VideoFrame:setTime(t)
-	self.time = t
+	self.frameTimer = 0
+	self.time = self.source:roundTime(t)
 end
 
 function VideoFrame:setState(state)
-	self.state = state
+	if state == nil or state == 0 then
+		self.frameTimer = 0
+		self.time = self.source:roundTime(self.time)
+	end
+	self.state = state or 0
 end
 
 function VideoFrame:setSize(width, height)
@@ -520,9 +467,9 @@ function VideoFrame:draw()
 
 		love.graphics.setColor(colors.white)
 		if self.source then
-			love.graphics.print(toHMS(self.time)..'/'..toHMS(self.duration or 0),124,self.height-20)
+			love.graphics.print(toHMS(self.time, 2)..'/'..toHMS(self.duration or 0, 2),124,self.height-20)
 		else
-			love.graphics.print('--.--.--/--.--.--',124,self.height-20)
+			love.graphics.print('--:--:--/--:--:--',124,self.height-20)
 		end
 	end
 
@@ -556,7 +503,22 @@ function VideoFrame:update(dt,x,y)
 		self.offset[2] = 0
 	end
 
-	self:updateImage(dt)
+	if self.state ~= 0 then
+		if self.source then
+			self.frameTimer = self.frameTimer + dt
+			self.time = self.time + dt
+			-- self.time = math.max(0,math.min(self.duration, self.time + self.state*dt))
+			if self.time == 0 or self.time == self.duration then
+				self.state = 0
+			end
+			self.source:setPosition(self.time)
+		end
+
+		if self.frameTimer >= self.frameStep then
+			self.frameTimer = self.frameTimer%self.frameStep
+			self:updateImage(dt)
+		end
+	end
 
 end
 
@@ -612,7 +574,7 @@ end
 
 function VideoFrame:keypressed(k)
 	if self.parent.focused then
-		if k == ' ' or k == 'k' then
+		if k == 'space' or k == 'k' then
 			self.state = self.state ~= 0 and 0 or 1
 			if self.time == self.duration then
 				self.time = 0
@@ -890,13 +852,13 @@ function ClipList:mousepressed(x,y,button)
 				State.setModal(self.browser)
 			--[[ Remove ]]
 			elseif self.buttons[2] then
-				self.doRemove()
+				self:doRemove()
 			--[[ Info ]]
 			elseif self.buttons[3] then
 				self:toggleInfo()
 			end
 			--[[ Click and Drag ]]
-			if x >=0 and x <= self.columnWidth and
+			if x >= 0 and x <= self.columnWidth and
 				y >= 0 and y <= self.height-24 then
 				local i = math.floor((y+self.offset[2])/100) +1
 
@@ -1056,12 +1018,19 @@ function Tracker.make()
 
 	--[[ Playhead location, in seconds ]]
 
-	w.location = 0
+	w.position = 0
 	w.playheadHighlight = false
 	w.playheadHeld = false
 	w.length = 10
 
-	w.masterClip = Clip.make(nil, profile.width, profile.height)
+	w.masterClip = MasterClip.make(nil, profile.width, profile.height)
+	w.masterClip.represent()
+	w.masterClip.tracker = w
+	w.masterClip.setPosition = function( self,p )
+		p = p - (p % (1/profile.framerate))
+		self.position = p
+		self.tracker:setPosition( p, true)
+	end
 	w.videoFrame = nil
 	w.contextPrime = false
 
@@ -1118,6 +1087,17 @@ end
 function Tracker:setVideoFrame(videoFrame)
 	self.videoFrame = videoFrame
 	print("VF set")
+end
+
+--[[there's probably a better way to do this
+but we need to make sure the positions in the
+master clip sync up wtih the positions of the
+tracker ]]
+function Tracker:setPosition(p,weak)
+	self.position = p
+	if not weak then 
+		self.videoFrame:setTime(p)
+	end
 end
 
 function Tracker:draw()
@@ -1178,7 +1158,7 @@ function Tracker:draw()
 			local refX,refWidth = r[1]._in * secondWidth, r[1].length * secondWidth
 
 			if (refX >= self.offset[1] - (128*secondWidth) and refX <= self.offset[1]+self.width) or
-				(refX+refWidth >= self.offset[1] and refX+refWidth <= self.offset[1]+self.width) then
+				(refX+refWidth >= self.offset[1] - (128*secondWidth) and refX+refWidth <= self.offset[1]+self.width + (128*secondWidth) ) then
 
 				love.graphics.setColor(colors[t.type.."Ref"])
 				love.graphics.rectangle("fill",refX,1,refWidth,98)
@@ -1206,10 +1186,11 @@ function Tracker:draw()
 
 	if self.parent.focused and mouseTable.source == "ClipList" then
 		local track_i = math.floor((self.mouse[2]-top)/100)
-		if self.tracks[track_i+1] and self.mouse[1] > 128 then
+		-- if self.tracks[track_i+1] and self.mouse[1] > 128 then
+		if self.tracks[track_i+1] then
 			love.graphics.setColor(0,0,0,128)
-			love.graphics.rectangle('fill',self.mouse[1]-128+self.offset[1],track_i*100,
-									mouseTable.target.length * secondWidth,100)
+			love.graphics.rectangle('fill',math.max(self.offset[1],self.mouse[1]-128+self.offset[1]),
+				track_i*100,mouseTable.target.length * secondWidth,100)
 		end
 		love.graphics.setColor(colors.white)
 		love.graphics.stippledLine(self.mouse[1]-128+self.offset[1],0,self.mouse[1]-128+self.offset[1],bottom,20,20)
@@ -1262,16 +1243,16 @@ function Tracker:draw()
 
 	love.graphics.setLineWidth(2)
 	love.graphics.setColor(255,0,0,128)
-	love.graphics.line(self.location*secondWidth,0,self.location*secondWidth,
+	love.graphics.line(self.position*secondWidth,0,self.position*secondWidth,
 									bottom)
 	love.graphics.setLineWidth(1)
 	if self.playheadHighlight then
-		local stamp = toHMS(self.location,2)
+		local stamp = toHMS(self.position,2)
 		local stampWidth = love.graphics.getFont():getWidth(stamp)
 		local stampHeight = love.graphics.getFont():getHeight(stamp)
 		love.graphics.setColor(colors.playhead)
 		love.graphics.push()
-		love.graphics.translate(self.location*secondWidth,0)
+		love.graphics.translate(self.position*secondWidth,0)
 
 		love.graphics.circle("line", 0, -12,12,4)
 		love.graphics.polygon("fill",0,-24.5,12+stampWidth+4,-24.5,12+stampWidth+4,-12,12,-12)
@@ -1343,24 +1324,25 @@ function Tracker:update(dt,x,y)
 
 	-- if (mx >= 128 and mx <= self.width and my >= 0 and my <= 32) or self.playheadHeld then
 	-- 	if love.mouse.isDown('l') then
-	-- 		self.location = (self.offset[1]+mx-128)/(5*self.scale)
+	-- 		self.position = (self.offset[1]+mx-128)/(5*self.scale)
 	-- 		self.playheadHeld = true
 	-- 	else
 	-- 		self.playheadHeld = false
 	-- 	end
 	-- else
 	if self.playheadHeld then
-		self.location = math.max(0,(self.offset[1]+mx-128)/(5*self.scale))
+		-- print(math.max(0,(self.offset[1]+mx-128)/(5*self.scale)))
+		self:setPosition(math.max(0,(self.offset[1]+mx-128)/(5*self.scale)))
 	end
 
 	self.length = self.inOut[2]
 
-	if mx >=0 and mx <= 128 then
+	if mx >= 0 and mx <= 128 then
 		-- insert tracker controls here
 	end
 
-	if self.offset[1]+mx-128 >= self.location*(5*self.scale) - 3 and
-		self.offset[1]+mx-128 <= self.location*(5*self.scale) + 3 and
+	if self.offset[1]+mx-128 >= self.position*(5*self.scale) - 3 and
+		self.offset[1]+mx-128 <= self.position*(5*self.scale) + 3 and
 		my >= 0 and my <= self.height then
 		self.playheadHighlight = true
 	else
@@ -1416,7 +1398,7 @@ function Tracker:mousereleased(x,y,button)
 	end
 	self.contextPrime = false
 	if self.parent.focused then
-		if x > 128 and y > 32 then
+		-- if x > 128 and y > 32 then
 			if button == LMB then
 				local track = math.floor( (y -32 + self.offset[2])/100 )+1
 
@@ -1424,9 +1406,9 @@ function Tracker:mousereleased(x,y,button)
 					mouseTable.source == "ClipList" and
 					not mouseTable.drag and not mouseTable.prime then
 
-					local start = math.round((x-128 + self.offset[1])/(5*self.scale),2)
+					local start = math.round(math.max(self.offset[1], x-128 + self.offset[1])/(5*self.scale),2)
 					local ox = 0
-					print("MOUSE EVENT",#mouseTable.target)
+					print("MOUSE EVENT",#mouseTable.target,start)
 					for i,v in ipairs(mouseTable.target) do
 						print("\t\tMOUSE EVENT @")
 						self.tracks[track]:addReference( v:newReference(self.tracks[track].type),
@@ -1438,7 +1420,7 @@ function Tracker:mousereleased(x,y,button)
 					mouseTable.target = nil
 				end
 			end
-		end
+		-- end
 	end
 end
 
@@ -1460,42 +1442,42 @@ end
 function Tracker:keypressed(k)
 	if self.parent.focused then
 		if k == ' ' then
-			if self.location*(5*self.scale) < self.offset[1] or
-				self.location*(5*self.scale) > self.offset[1] + self.width then
-				self.offset[1] = self.location*(5*self.scale)
+			if self.position*(5*self.scale) < self.offset[1] or
+				self.position*(5*self.scale) > self.offset[1] + self.width then
+				self.offset[1] = self.position*(5*self.scale)
 			else
 				-- send play to video frame
 			end
-		elseif k == 'm' and not self.markers[tostring(self.location)] then
-			self.markers[#self.markers+1] = {self.location,"marker_"..#self.markers}
-			self.markers[tostring(self.location)] = true
+		elseif k == 'm' and not self.markers[tostring(self.position)] then
+			self.markers[#self.markers+1] = {self.position,"marker_"..#self.markers}
+			self.markers[tostring(self.position)] = true
 			table.sort(self.markers, function (a,b) return a[1] < b[1] end)
 		elseif k == ']' then
 			local i = 1
-			while i <= #self.markers and self.location >= self.markers[i][1] do
+			while i <= #self.markers and self.position >= self.markers[i][1] do
 				i = i + 1
 			end
-			self.location = i <= #self.markers and self.markers[i][1] or self.location
+			self:setPosition(i <= #self.markers and self.markers[i][1] or self.location )
 		elseif k == '[' then
 			local i = #self.markers
-			while i >= 1 and self.location <= self.markers[i][1] do
+			while i >= 1 and self.position <= self.markers[i][1] do
 				i = i - 1
 			end
-			self.location = i > 0 and self.markers[i][1] or self.location
+			self:setPosition(i > 0 and self.markers[i][1] or self.position )
 		elseif k == 'i' then
-			self.inOut[1] = self.location
+			self.inOut[1] = self.position
 			if self.inOut[2] == self.inOut[1] then
 				self.inOut[1] = self.inOut[1] - .1 end
 		elseif k == 'o' then
-			self.inOut[2] = self.location
+			self.inOut[2] = self.position
 			if self.inOut[2] == self.inOut[1] then
 				self.inOut[2] = self.inOut[2] + .1 end
 		elseif k == 'right' then
 			-- eventually these should be relative to the zoom/scale
 			-- also add shift and alt for large and fine skip rsptvly
-			self.location = self.location + 1
+			self:setPosition(self.position + 1)
 		elseif k == 'left' then
-			self.location = math.max(0,self.location - 1)
+			self:setPosition(math.max(0,self.position - 1))
 		end
 	end
 end

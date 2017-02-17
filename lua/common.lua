@@ -20,7 +20,7 @@ local Widget = {}
 Widget.__index = Widget
 Common.Widget = Widget
 
-function Widget.make(props = {})
+function Widget.make(props)
 	local b = {}
 	setmetatable(b,Widget)
 
@@ -61,4 +61,12 @@ function Widget:draw()
 	love.graphics.setColor(colors.white)
 	love.graphics.rectangle('line',self.x, self.y,
 		self.width, self.height, self.properties.radius)
+end
+
+Toolbar = {}
+function Toolbar.make(props)
+	local t = {}
+	setmetatable(t,Toolbar)
+
+	return t
 end

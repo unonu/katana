@@ -10,6 +10,7 @@ FFI.cdef[[
 typedef struct {int red, green, blue;} Color;
 
 void flush(char* dst, Color fill, int w, int h);
+void flush_24(char* dst, Color fill, int w, int h);
 
 void setData_24(char* dst, char* src, int w, int h);
 
@@ -50,6 +51,7 @@ function VideoStream.make( path,width,height )
 
 	if path then
 		local f = s.stream:getFrame()
+		s.framerate = s.stream:getFramerate()
 		s.width,s.height = s.stream.width or s.width, s.stream.height or s.height
 		-- print('e', FFI.sizeof(f), f)
 		-- print('f',tonumber(s.stream.frame.linesize[0]))
@@ -59,6 +61,10 @@ function VideoStream.make( path,width,height )
 		-- imageDataExtra.setData_32(s.data:getPointer(), f , s.width, s.height)
 		-- print('g')
 		s.length = s.stream:getDuration()
+	else
+		imageDataExtra.flush(s.data:getPointer(), s.color , s.width, s.height)
+		s.framerate = profile.framerate
+		s.length = 0
 	end
 	s.image = love.graphics.newImage(s.data)
 
@@ -76,7 +82,30 @@ function VideoStream:getData()
 		return self.stream:getFrame()
 	end
 
-	return self.data:getPointer()
+	local d = FFI.new("char [?]",self.width*self.height*3)
+
+	imageDataExtra.flush_24(d,self.color,self.width,self.height)
+	
+	return d
+end
+
+function VideoStream:roundTime(t)
+	-- min step should be in seconds
+	local ms =  self.stream and self.stream:minStep() or 1/self.framerate
+	return t - (t%ms)
+end
+
+function VideoStream:seek(position,mode)
+	--[[ seek modes are:
+		1 - time in seconds
+		2 - frame
+		3 - percentage ]]
+	mode = mode or 1
+	({
+		self.stream.seekTime,
+		self.stream.seekFrame,
+		self.stream.seekPercentage,
+	})[mode](self.stream, position)
 end
 
 function VideoStream:getThumbnail(w,h)
@@ -132,34 +161,16 @@ function Clip.make(path)
 	local c = {}
 	setmetatable(c, Clip)
 
-	if path then
-		c.path = path
-			--should check if exists but w/e
-		c.videoStream = VideoStream.make(path,c.width,c.height)
-	-- c.info = {}
-	-- c.info.metadata = {}
-	-- c.info.stream = {}
+	c.path = path
+		--should check if exists but w/e
+	c.videoStream = VideoStream.make(path,c.width,c.height)
+	c.position = 0
+	c.length = c.videoStream.length
+	c.framerate = c.videoStream.framerate
 
-		c.position = 0
-		c.length = c.videoStream.length
-		print(c.length)
-		c.framerate = c.videoStream.framerate
-	-- c.name = nil
-	-- c.width = nil
-	-- c.height = nil
-
-		c.thumb = nil
-	end
+	c.thumb = nil
 
 	c.references = {}
-
-	-- c:refresh()
-
-
-	-- videoLoadChannel:push(path)
-	-- love.timer.sleep(.01)
-
-	-- c.cacheFile = io.open("/tmp/katana/"..toHash(path)..".cch")
 
 	return c
 end
@@ -191,6 +202,19 @@ function Clip:getPosition()
 	return self.position
 end
 
+function Clip:setPosition(t)
+	self.position = self.videoStream:roundTime(t)
+	-- self.videoStream:seek(t,1)
+end
+
+function Clip:roundTime( t )
+	return self.videoStream:roundTime(t)
+end
+
+function Clip:seek( position,mode )
+	self.videoStream:seek(position,mode)
+end
+
 --[[ Creates a new reference to a clip. Valid
 	types are: video/audio, video, audio, photo. ]]
 
@@ -198,6 +222,37 @@ function Clip:newReference(type)
 	self.references[#self.references+1] = Reference.make(self,type or "video",#self.references+1)
 	return self.references[#self.references]
 end
+
+function Clip:represent()
+	print('a')
+end
+
+MasterClip = {}
+MasterClip.__index = MasterClip
+
+function MasterClip.make()
+	local m = {}
+	setmetatable(m,Clip)
+
+	m.path = path
+		--should check if exists but w/e
+	m.videoStream = VideoSink.make(profile.width,profile.height)
+	m.position = 0
+	m.length = m.videoStream.length
+	m.framerate = m.videoStream.framerate
+
+	m.thumb = nil
+
+	m.references = {}
+	
+	function m:represent()
+		print('b')
+	end
+
+	return m
+
+end
+
 
 Reference = {}
 Reference.__index = Reference
@@ -288,9 +343,41 @@ function Reference:delete()
 	self = nil
 end
 
+VideoSink = {}
+VideoSink.__index = VideoSink
+
+function VideoSink.make(w, h)
+	local v = {}
+	setmetatable(v,VideoSink)
+
+	v.width = w
+	v.height = h
+
+	return v
+end
+
+function VideoSink:getData()
+	local d = FFI.new("char[?]",self.width*self.height*3)
+	-- now we should grab anything coming into the sink and paste them, in order
+	-- onto this buffer
+
+	--but for now we'll just flush the buffer to grey
+	imageDataExtra.flush_24(d, FFI.new("Color",128,128,128), self.width, self.height)
+	return d
+end
+
+function VideoSink:roundTime(t)
+	-- min step should be in seconds
+	local ms = 1/profile.framerate
+	return t - (t%ms)
+end
+
 Video = {}
 Video.VideoStream = VideoStream
 Video.Clip = Clip
+Video.MasterClip = MasterClip
 Video.Reference = Reference
+Video.VideoSink = VideoSink
 
 return Video
+

@@ -5,6 +5,8 @@ local avformat = FFI.load('avformat-ffmpeg')
 local avutil = FFI.load('avutil-ffmpeg')
 local swscale = FFI.load('swscale-ffmpeg')
 local header = io.open('ffi/ffmpeg.h'):read('*a')
+local avCodecContexts = {}
+local avFrames = {}
 FFI.cdef(header)
 
 function avAssert(err)
@@ -24,6 +26,20 @@ function avInit()
 	-- avcodec.avcodec_init()
 	avcodec.avcodec_register_all()
 	avformat.av_register_all()
+end
+
+function avQuit()
+	for i=1, table.maxn(avCodecContexts) do
+		if avCodecContexts[i] then
+			avcodec.avcodec_close(avCodecContexts[i])
+			avcodec.av_free(avCodecContexts[i])
+		end
+	end
+	for i=1, table.maxn(avFrames) do
+		if avFrames[i] then
+			avcodec.av_free(avFrames[i])
+		end
+	end
 end
 
 -- "Opening file"
@@ -60,24 +76,26 @@ function avVideo.make(filename)
 	av.audioStream = nil
 	av.audioContext = nil
 	av.streams = {}
-	for i=1, tonumber(av.context.nb_streams) do
-		local stream = av.context.streams[i-1]
+	for i=0, tonumber(av.context.nb_streams)-1 do
+		local stream = av.context.streams[i]
 		local context = stream.codec
 		if context.codec_type == FFI.C.AVMEDIA_TYPE_VIDEO then
 			local codec = avcodec.avcodec_find_decoder(context.codec_id)
 			avAssert(avcodec.avcodec_open2(context, codec, nil))
 			av.videoContext = context
+			avCodecContexts[#avCodecContexts+1] = context
+			print(context, "ffmpeg:81")
 			av.videoStream = i
 			av.numFrames = tonumber(stream.nb_frames)
 			av.framerate = rational2number(stream.avg_frame_rate)
 			-- duration in seconds
 			av.duration = tonumber(stream.duration)
-			if stream.time_base.num > 0 then
-				av.duration = av.duration * rational2number(stream.time_base)
+			av.timeBase = rational2number(stream.time_base)
+			if av.timeBase > 0 then
+				av.duration = av.duration * av.timeBase
 			end
 			av.width = tonumber(context.width)
 			av.height = tonumber(context.height)
-			
 		end
 		if context.codec_type == FFI.C.AVMEDIA_TYPE_AUDIO then
 			local codec = avcodec.avcodec_find_decoder(context.codec_id)
@@ -88,7 +106,7 @@ function avVideo.make(filename)
 		av.streams[i] = stream
 	end
 
-
+	av.position = FFI.new("int64_t")
 	-- should check if it opened
 	av.file = io.open(filename,'rb')
 	-- reusable stuff so might contain garbage
@@ -96,6 +114,8 @@ function avVideo.make(filename)
 	-- av.packet = avcodec.av_packet_alloc()
 	av.frame = avcodec.av_frame_alloc()
 	av.buffFrame = avcodec.av_frame_alloc()
+	avFrames[#avFrames+1] = av.frame
+	avFrames[#avFrames+1] = av.buffFrame
 	av.gotFrame = FFI.new("int[1]") -- need to FREE
 	av.frameSize = av.videoContext.width * av.videoContext.height * 3
 	-- 16 bpp? idk fix this later
@@ -119,8 +139,15 @@ function avVideo.make(filename)
 		nil,nil,nil
 
 		)
+	-- need to make sure that the cleanup function gets called
+	-- registerDestructor(av.close)
 
 	return av
+end
+
+function avVideo:close()
+	avcodec.av_free(self.frame)
+	avcodec.av_free(self.buffFrame)
 end
 
 function avVideo:getFrame()
@@ -219,7 +246,16 @@ function avVideo:getFramerate()
 	return self.framerate
 end
 
+function avVideo:minStep()
+	return self.timeBase
+end
 
+-- input time is in seconds
+function avVideo:seekTime( t )
+	-- print("seeking", self.context, self.videoStream, t, self.timeBase)
+	avformat.av_seek_frame( self.context, self.videoStream, t/self.timeBase, 0 )
+	-- print("sought")
+end
 
 -- "Finding audio stream"
 

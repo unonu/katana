@@ -157,6 +157,7 @@ function love.draw()
 		State.contextMenu:draw()
 	end
 
+	love.graphics.print(love.timer.getFPS(),0,LG.getHeight()-24)
 end
 
 function setLoadStatus(s)
@@ -371,5 +372,10 @@ end
 
 function love.quit()
 	os.execute("rm /tmp/katana/*")
+	avQuit()
 	return false
 end
+
+-- function registerDestructor( foo )
+-- 	DESTRUCTORS[#]
+-- end
